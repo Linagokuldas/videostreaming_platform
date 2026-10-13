@@ -1,0 +1,27 @@
+{
+  "name": "reelflix-platform",
+  "version": "1.0.0",
+  "description": "REELFLIX — Cinematic Video Streaming & Subscription Platform",
+  "scripts": {
+    "dev": "node run-dev.js",
+    "dev:server": "npm run dev --prefix server",
+    "dev:client": "npm run dev --prefix client",
+    "build:server": "npm run build --prefix server",
+    "build:client": "npm run build --prefix client",
+    "build": "npm run build:server && npm run build:client",
+    "start": "npm run start --prefix server"
+  },
+  "keywords": [
+    "streaming",
+    "video",
+    "subscription",
+    "react",
+    "vite",
+    "express",
+    "postgresql",
+    "prisma",
+    "tailwind"
+  ],
+  "author": "REELFLIX Engineering Team",
+  "license": "ISC"
+}

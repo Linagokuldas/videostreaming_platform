@@ -1,0 +1,205 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum SubscriptionStatus {
+  PENDING
+  ACTIVE
+  CANCELLED
+  EXPIRED
+  PAYMENT_FAILED
+}
+
+enum PaymentStatus {
+  INITIATED
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+enum ContentType {
+  MOVIE
+  SERIES
+}
+
+model User {
+  id              String            @id @default(uuid())
+  name            String
+  email           String            @unique
+  passwordHash    String
+  role            Role              @default(USER)
+  avatarUrl       String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  subscriptions   Subscription[]
+  payments        Payment[]
+  watchlistItems  WatchlistItem[]
+  viewingProgress ViewingProgress[]
+  playbackSessions PlaybackSession[]
+
+  @@index([email])
+}
+
+model Genre {
+  id          String       @id @default(uuid())
+  name        String       @unique
+  slug        String       @unique
+  description String?
+  videos      VideoGenre[]
+}
+
+model Video {
+  id              String            @id @default(uuid())
+  title           String
+  description     String
+  contentType     ContentType       @default(MOVIE)
+  posterUrl       String
+  backdropUrl     String
+  mediaUrl        String
+  trailerUrl      String?
+  language        String            @default("English")
+  releaseDate     DateTime
+  durationSeconds Int               @default(0)
+  contentRating   String            @default("PG-13")
+  ratingScore     Float             @default(8.5)
+  isPublished     Boolean           @default(true)
+  isFeatured      Boolean           @default(false)
+  isTrending      Boolean           @default(false)
+  viewCount       Int               @default(0)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  genres          VideoGenre[]
+  watchlistItems  WatchlistItem[]
+  viewingProgress ViewingProgress[]
+  playbackSessions PlaybackSession[]
+
+  @@index([isFeatured, isPublished])
+  @@index([isTrending, isPublished])
+  @@index([contentType, isPublished])
+}
+
+model VideoGenre {
+  videoId String
+  genreId String
+
+  video   Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  genre   Genre @relation(fields: [genreId], references: [id], onDelete: Cascade)
+
+  @@id([videoId, genreId])
+}
+
+model Plan {
+  id              String         @id @default(uuid())
+  name            String         @unique // BASIC, STANDARD, PREMIUM
+  description     String
+  price           Float
+  currency        String         @default("USD")
+  billingInterval String         @default("monthly")
+  maxResolution   String         @default("1080p")
+  maxDevices      Int            @default(2)
+  features        String         // JSON string of feature bullets
+  isActive        Boolean        @default(true)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  subscriptions   Subscription[]
+}
+
+model Subscription {
+  id           String             @id @default(uuid())
+  userId       String
+  planId       String
+  status       SubscriptionStatus @default(PENDING)
+  startDate    DateTime           @default(now())
+  endDate      DateTime
+  cancelledAt  DateTime?
+  autoRenew    Boolean            @default(true)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan         Plan               @relation(fields: [planId], references: [id])
+  payments     Payment[]
+
+  @@index([userId, status])
+}
+
+model Payment {
+  id                String        @id @default(uuid())
+  userId            String
+  subscriptionId    String?
+  amount            Float
+  currency          String        @default("USD")
+  provider          String        @default("DEMO") // DEMO, RAZORPAY, STRIPE
+  providerOrderId   String?
+  providerPaymentId String?
+  status            PaymentStatus @default(INITIATED)
+  metadata          String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscription      Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([providerOrderId])
+}
+
+model WatchlistItem {
+  id        String   @id @default(uuid())
+  userId    String
+  videoId   String
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video     Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, videoId])
+}
+
+model ViewingProgress {
+  id              String   @id @default(uuid())
+  userId          String
+  videoId         String
+  positionSeconds Int      @default(0)
+  durationSeconds Int      @default(0)
+  completed       Boolean  @default(false)
+  lastWatchedAt   DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video           Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, videoId])
+  @@index([userId, lastWatchedAt])
+}
+
+model PlaybackSession {
+  id              String    @id @default(uuid())
+  userId          String
+  videoId         String
+  sessionToken    String    @unique
+  status          String    @default("ACTIVE") // ACTIVE, STOPPED, EXPIRED
+  deviceInfo      String?
+  startedAt       DateTime  @default(now())
+  endedAt         DateTime?
+  lastHeartbeatAt DateTime  @default(now())
+
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video           Video     @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@index([sessionToken])
+  @@index([userId, status])
+}
